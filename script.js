@@ -508,12 +508,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isLeaked = email.toLowerCase().includes("test");
                 if (isLeaked) {
                     breachResult.className = "mt-4 p-3 rounded-lg text-sm bg-red-900/50 border border-red-500 text-red-300";
-                    breachResult.innerHTML = `⚠️ <strong>¡Alerta!</strong> El correo <strong>${email}</strong> aparece en filtraciones públicas.`;
-                    saveToHistory('Filtración', email, 'danger');
+                    breachResult.textContent = `Resultado simulado: el correo ${email} coincide con el ejemplo de prueba. No se consultaron filtraciones reales.`;
+                    saveToHistory('Demo correo', email, 'danger');
                 } else {
                     breachResult.className = "mt-4 p-3 rounded-lg text-sm bg-green-900/50 border border-green-500 text-green-300";
-                    breachResult.innerHTML = `✅ <strong>¡Seguro!</strong> No se hallaron registros para <strong>${email}</strong>.`;
-                    saveToHistory('Filtración', email, 'safe');
+                    breachResult.textContent = `Resultado simulado: el correo ${email} no coincide con el ejemplo de prueba. No se consultaron filtraciones reales.`;
+                    saveToHistory('Demo correo', email, 'safe');
                 }
             }, 800);
         });
