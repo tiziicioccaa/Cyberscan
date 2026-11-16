@@ -109,7 +109,25 @@ Una plataforma web educativa e interactiva para aprendizaje de **ciberseguridad*
 
 ## 🚀 Instalación y Uso
 
-Configura las variables `VIRUSTOTAL_API_KEY`, `HIBP_API_KEY` y las variables de MySQL (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`) en el entorno del servidor. Para una instalación nueva, usa `database/cyberscan_dump.sql`; si ya existe la tabla `scan_logs`, aplica `database/migrate_scan_target_value.sql`. Los resultados de URL y archivos se guardan desde el backend tras completar VirusTotal; las consultas de correo se guardan tras responder HIBP.
+Configura las variables `VIRUSTOTAL_API_KEY` (), y las variables de MySQL (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`) en el entorno del servidor. Para una instalación nueva, usa `database/cyberscan_dump.sql`; si ya existe la tabla `scan_logs`, aplica `database/migrate_scan_target_value.sql`. Los resultados de URL y archivos se guardan desde el backend tras completar VirusTotal; las consultas de correo se guardan tras responder HIBP.
+
+Poner estos comandos en la powershell para iniciar node.js:
+
+- Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+- fnm env --use-on-cd | Out-String | Invoke-Expression
+
+- fnm use 26
+
+- npm start
+
+$env:VIRUSTOTAL_API_KEY = "5a1a960b5f4208734ff5cafd5768a6f7091b5fc8669317ef8ef0366872d91478"
+
+$env:DB_HOST = "localhost"
+$env:DB_PORT = "3306"
+$env:DB_USER = "root"
+$env:DB_PASSWORD = ""
+$env:DB_NAME = "cyberscan_db"
 
 ### 1. Clonar el repositorio
 ```bash
