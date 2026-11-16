@@ -109,6 +109,10 @@ Una plataforma web educativa e interactiva para aprendizaje de **ciberseguridad*
 
 ## 🚀 Instalación y Uso
 
+instalar node.js
+instalar wampserver
+instalar workbench
+
 Configura las variables `VIRUSTOTAL_API_KEY` (), y las variables de MySQL (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`) en el entorno del servidor. Para una instalación nueva, usa `database/cyberscan_dump.sql`; si ya existe la tabla `scan_logs`, aplica `database/migrate_scan_target_value.sql`. Los resultados de URL y archivos se guardan desde el backend tras completar VirusTotal; las consultas de correo se guardan tras responder HIBP.
 
 Poner estos comandos en la powershell para iniciar node.js:
