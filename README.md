@@ -121,6 +121,7 @@ Poner estos comandos en la powershell para iniciar node.js:
 
 - npm start
 
+$env:HAVEIBEENPWNED_API_KEY = "00000000000000000000000000000000"
 $env:VIRUSTOTAL_API_KEY = "5a1a960b5f4208734ff5cafd5768a6f7091b5fc8669317ef8ef0366872d91478"
 
 $env:DB_HOST = "localhost"
