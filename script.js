@@ -310,59 +310,23 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('infortech_history', JSON.stringify(history));
     }
 
+    function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, character => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;',
+        })[character]);
+    }
+
     // Permite cambiar el backend del plugin sin editar la lógica del escáner.
     const pluginApiBase = window.CYBERSCAN_PLUGIN_API_BASE || (
         window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
             ? 'http://localhost:3000/api/plugin'
             : 'https://infortech.onrender.com/api/plugin'
     );
-
-    // Registra los resultados de VirusTotal en el plugin sin interrumpir el análisis si MySQL no está disponible.
-    async function logScanToPlugin(targetType, targetValue, stats) {
-        const malicious = Number(stats.malicious) || 0;
-        const suspicious = Number(stats.suspicious) || 0;
-        const engineCount = Object.values(stats).reduce((total, value) => total + (Number(value) || 0), 0);
-        const riskScore = engineCount ? Math.min(100, Math.round(((malicious + suspicious * 0.5) / engineCount) * 100)) : 0;
-        const status = malicious > 0 ? 'malicious' : suspicious > 0 ? 'suspicious' : 'safe';
-        const details = `VirusTotal: ${malicious} detecciones maliciosas, ${suspicious} sospechosas y ${Number(stats.harmless) || 0} seguras.`;
-
-        try {
-            const response = await fetch(`${pluginApiBase}/log-scan`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    target_type: targetType,
-                    target_value: targetValue.slice(0, 255),
-                    status,
-                    risk_score: riskScore,
-                    details
-                })
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        } catch (error) {
-            console.warn('[Cyberscan Plugin] No se pudo guardar el análisis:', error.message);
-        }
-    }
-
-    // Guarda la actividad del módulo de correo como demostración, sin persistir la dirección personal.
-    async function logEmailDemoToPlugin(status) {
-        try {
-            const response = await fetch(`${pluginApiBase}/log-scan`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    target_type: 'email',
-                    target_value: 'Simulación de verificación de correo',
-                    status,
-                    risk_score: status === 'suspicious' ? 70 : 0,
-                    details: 'Resultado simulado por la interfaz educativa; no se consultaron bases de datos de filtraciones y no se guardó la dirección ingresada.'
-                })
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        } catch (error) {
-            console.warn('[Cyberscan Plugin] No se pudo registrar la demostración de correo:', error.message);
-        }
-    }
+    const scanApiBase = pluginApiBase.replace(/\/api\/plugin\/?$/, '');
 
     function renderHistory() {
         const container = document.getElementById('historyListContainer');
@@ -376,10 +340,10 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = history.map(item => `
             <div class="bg-gray-800 p-2 rounded flex justify-between items-center border-l-4 ${item.estado === 'safe' ? 'border-green-500' : 'border-red-500'}">
                 <div>
-                    <span class="font-bold text-white uppercase text-xs bg-gray-700 px-1.5 py-0.5 rounded">${item.tipo}</span>
-                    <p class="text-gray-300 text-sm mt-1 truncate max-w-[250px] md:max-w-md">${item.detalle}</p>
+                    <span class="font-bold text-white uppercase text-xs bg-gray-700 px-1.5 py-0.5 rounded">${escapeHtml(item.tipo)}</span>
+                    <p class="text-gray-300 text-sm mt-1 truncate max-w-[250px] md:max-w-md">${escapeHtml(item.detalle)}</p>
                 </div>
-                <span class="text-xs text-gray-400 whitespace-nowrap">${item.fecha}</span>
+                <span class="text-xs text-gray-400 whitespace-nowrap">${escapeHtml(item.fecha)}</span>
             </div>
         `).join('');
     }
@@ -406,29 +370,40 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!url) return alert("Por favor, ingresa una URL.");
             if (!url.startsWith('http')) { url = 'https://' + url; urlInput.value = url; }
 
-            analyzerStatus.textContent = 'Analizando URL... (Espera 30s si el servidor está dormido)';
+            analyzerStatus.textContent = 'Analizando URL... (puede tardar hasta 90 segundos)';
             analyzerStatus.className = 'text-lg mt-4 h-6 text-yellow-400';
             analyzeButton.disabled = true;
             analyzeButton.classList.add('loading');
             resultsContainer.innerHTML = '<p class="text-center text-gray-400">Procesando...</p>';
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); 
+            const timeoutId = setTimeout(() => controller.abort(), 90000);
 
             try {
                 const [vtResult, htmlResult] = await Promise.allSettled([
-                    fetch(`https://infortech.onrender.com/analizar?url=${encodeURIComponent(url)}`, { signal: controller.signal })
-                        .then(res => { clearTimeout(timeoutId); return res.json(); }),
+                    fetch(`${scanApiBase}/analizar?url=${encodeURIComponent(url)}`, { signal: controller.signal })
+                        .then(async res => {
+                            const data = await res.json();
+                            if (res.status === 202) throw new Error(data.message || 'El análisis continúa en proceso.');
+                            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+                            return data;
+                        }),
                     fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`)
                         .then(res => res.text())
                 ]);
+                clearTimeout(timeoutId);
 
                 renderResult(vtResult, htmlResult);
                 
                 if (vtResult.status === 'fulfilled' && vtResult.value.stats) {
-                    const isSafe = vtResult.value.stats.malicious === 0;
+                    const isSafe = vtResult.value.stats.malicious === 0 && vtResult.value.stats.suspicious === 0;
                     saveToHistory('URL', url, isSafe ? 'safe' : 'danger');
-                    logScanToPlugin('url', url, vtResult.value.stats);
+                } else if (vtResult.status === 'rejected') {
+                    analyzerStatus.textContent = `No se pudo completar o guardar el análisis: ${vtResult.reason.message}`;
+                    analyzerStatus.className = 'text-lg mt-4 h-6 text-red-400';
+                } else {
+                    analyzerStatus.textContent = 'El análisis no devolvió resultados para guardar.';
+                    analyzerStatus.className = 'text-lg mt-4 h-6 text-red-400';
                 }
             } catch (error) {
                 analyzerStatus.textContent = 'Error crítico de conexión (Timeout).';
@@ -461,18 +436,19 @@ document.addEventListener('DOMContentLoaded', () => {
             resultsContainer.innerHTML = '<p class="text-center text-gray-400">Subiendo a VirusTotal...</p>';
 
             try {
-                const response = await fetch('https://infortech.onrender.com/analizar-archivo', {
+                const response = await fetch(`${scanApiBase}/analizar-archivo`, {
                     method: 'POST',
                     body: formData
                 });
                 
                 const data = await response.json();
+                if (response.status === 202) throw new Error(data.message || 'El análisis continúa en proceso.');
+                if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
                 
                 if (data.stats) {
                     renderResult({ status: 'fulfilled', value: data }, null);
-                    const isSafe = data.stats.malicious === 0;
+                    const isSafe = data.stats.malicious === 0 && data.stats.suspicious === 0;
                     saveToHistory('Archivo', file.name, isSafe ? 'safe' : 'danger');
-                    logScanToPlugin('file', file.name, data.stats);
                 } else {
                     throw new Error(data.error || "Error desconocido del servidor");
                 }
@@ -582,28 +558,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const breachResult = document.getElementById("breach-result");
 
     if (breachBtn) {
-        breachBtn.addEventListener("click", () => {
+        breachBtn.addEventListener("click", async () => {
             const email = breachEmailInput.value.trim();
             if (!email || !email.includes("@")) return alert("Ingresa un correo válido.");
 
             breachResult.classList.remove("hidden");
             breachResult.className = "mt-4 p-3 rounded-lg text-sm bg-gray-700 text-white";
             breachResult.textContent = "Verificando bases de datos...";
+            breachBtn.disabled = true;
+            try {
+                const response = await fetch(`${pluginApiBase}/scan-email`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email }),
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
 
-            setTimeout(() => {
-                const isLeaked = email.toLowerCase().includes("test");
-                if (isLeaked) {
+                if (data.breachCount) {
                     breachResult.className = "mt-4 p-3 rounded-lg text-sm bg-red-900/50 border border-red-500 text-red-300";
-                    breachResult.textContent = `Resultado simulado: el correo ${email} coincide con el ejemplo de prueba. No se consultaron filtraciones reales.`;
-                    saveToHistory('Demo correo', email, 'danger');
-                    logEmailDemoToPlugin('suspicious');
+                    breachResult.textContent = `Se encontraron ${data.breachCount} filtraciones: ${data.breaches.map(item => item.name).join(', ')}. Consulta y resultado guardados en la base de datos.`;
+                    saveToHistory('Filtración', email, 'danger');
                 } else {
                     breachResult.className = "mt-4 p-3 rounded-lg text-sm bg-green-900/50 border border-green-500 text-green-300";
-                    breachResult.textContent = `Resultado simulado: el correo ${email} no coincide con el ejemplo de prueba. No se consultaron filtraciones reales.`;
-                    saveToHistory('Demo correo', email, 'safe');
-                    logEmailDemoToPlugin('safe');
+                    breachResult.textContent = 'HIBP no encontró este correo en las filtraciones consultadas. El resultado se guardó en la base de datos.';
+                    saveToHistory('Filtración', email, 'safe');
                 }
-            }, 800);
+            } catch (error) {
+                breachResult.className = "mt-4 p-3 rounded-lg text-sm bg-red-900/50 border border-red-500 text-red-300";
+                breachResult.textContent = error.message;
+            } finally {
+                breachBtn.disabled = false;
+            }
         });
     }
 

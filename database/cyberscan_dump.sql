@@ -10,7 +10,7 @@ USE cyberscan_db;
 CREATE TABLE IF NOT EXISTS scan_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     target_type ENUM('url', 'file', 'email') NOT NULL,
-    target_value VARCHAR(255) NOT NULL,
+    target_value VARCHAR(2048) NOT NULL,
     status ENUM('safe', 'suspicious', 'malicious') NOT NULL,
     risk_score INT NOT NULL,
     details TEXT,

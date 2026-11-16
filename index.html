@@ -124,6 +124,7 @@
                     <!-- 1. Pestaña: Analizar URL -->
                     <div id="tabUrlContent" class="tab-pane flex flex-col flex-grow">
                         <p class="text-lg md:text-xl mb-4 h-8">Pega una URL para analizar</p>
+                        <p class="mb-3 text-sm text-gray-400">La URL se consulta en VirusTotal y el resultado se guarda en la base de datos.</p>
                         <div class="flex flex-col sm:flex-row gap-2">
                             <input type="text" id="urlInput" placeholder="https://ejemplo.com" class="w-full bg-gray-700 text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <button id="analyzeButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 shadow-lg whitespace-nowrap">
@@ -135,6 +136,7 @@
                     <!-- 2. Pestaña: Analizar Archivo -->
                     <div id="tabFileContent" class="tab-pane hidden flex flex-col flex-grow">
                         <p class="text-lg md:text-xl mb-4 h-8">Sube un archivo (Max 25MB)</p>
+                        <p class="text-sm text-gray-400">El archivo se envía a VirusTotal; su nombre, hash y resultado se guardan en la base de datos.</p>
                         <div class="flex flex-col gap-4">
                             <input type="file" id="fileInput" class="w-full bg-gray-700 text-white rounded-lg p-3 file:mr-4 file:rounded file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-white">
                             <button id="analyzeFileButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 shadow-lg">Analizar archivo</button>
@@ -147,15 +149,15 @@
                         <div id="resultsContainer" class="space-y-4"></div>
                     </div>
 
-                    <!-- 3. Pestaña: Verificación educativa de filtraciones -->
+                    <!-- 3. Pestaña: Verificación de filtraciones -->
                     <div id="tabEmailContent" class="tab-pane hidden flex flex-col gap-4">
                         <div>
                             <h2 class="text-xl font-bold text-white">Verificación de correo</h2>
-                            <p class="mt-2 text-sm text-gray-400">Modo demostración: no consulta bases de datos reales. No ingreses información sensible.</p>
+                            <p class="mt-2 text-sm text-gray-400">Consulta Have I Been Pwned. El correo se envía a ese servicio y el resultado, junto con la dirección, se guarda en la base de datos.</p>
                         </div>
                         <label for="breach-email" class="text-sm text-gray-300">Correo electrónico</label>
                         <input type="email" id="breach-email" placeholder="nombre@ejemplo.com" class="w-full bg-gray-700 text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <button id="breach-btn" class="self-start bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-lg">Probar demostración</button>
+                        <button id="breach-btn" class="self-start bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-lg">Verificar correo</button>
                         <div id="breach-result" class="hidden" role="status" aria-live="polite"></div>
                     </div>
 

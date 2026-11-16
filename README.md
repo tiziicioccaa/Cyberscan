@@ -14,7 +14,7 @@ Una plataforma web educativa e interactiva para aprendizaje de **ciberseguridad*
 - **Análisis de Seguridad**: Análisis de URLs y archivos mediante **VirusTotal API**
 - **Herramientas de Protección**: Generador y validador de contraseñas, verificación de filtraciones
 - **Autenticación Integrada**: Sistema de registro, login y recuperación de contraseña
-- **Historial Local**: Almacenamiento de análisis realizados en el navegador
+- **Historial de Análisis**: Registros locales en el navegador y resultados persistentes en MySQL
 
 ---
 
@@ -42,8 +42,9 @@ Una plataforma web educativa e interactiva para aprendizaje de **ciberseguridad*
 - Historial de análisis
 
 ### 4. ✉️ Detección de Filtraciones
-- Verifica si un correo electrónico fue expuesto en filtraciones públicas
-- Consulta bases de datos de brechas conocidas
+- Consulta Have I Been Pwned para verificar filtraciones conocidas
+- Guarda en MySQL el correo consultado y los nombres, fechas y tipos de datos expuestos
+- Requiere configurar `HIBP_API_KEY` en el servidor; la dirección también se envía a HIBP
 - Alertas visuales (rojo/verde)
 
 ### 5. 🔑 Generador de Contraseñas
@@ -65,7 +66,7 @@ Una plataforma web educativa e interactiva para aprendizaje de **ciberseguridad*
 - Interfaz interactiva con grid responsivo
 
 ### 8. 📊 Historial de Análisis
-- Registro local de todos los análisis realizados
+- Registro local de los análisis recientes y almacenamiento persistente en MySQL
 - Almacenamiento de hasta 20 registros
 - Clasificación por tipo (URL, Archivo, Filtración)
 - Indicador de seguridad (verde = seguro, rojo = peligro)
@@ -91,6 +92,7 @@ Una plataforma web educativa e interactiva para aprendizaje de **ciberseguridad*
 
 ### APIs Externas
 - **VirusTotal API** - Análisis de seguridad
+- **Have I Been Pwned API** - Consulta de filtraciones de correos
 - **AllOrigins** - Proxy CORS para análisis de contenido
 
 ---
@@ -100,11 +102,14 @@ Una plataforma web educativa e interactiva para aprendizaje de **ciberseguridad*
 - Node.js v14+ instalado
 - npm o yarn
 - Una clave API de VirusTotal (gratuita)
+- Una clave API de Have I Been Pwned para búsquedas de correos
 - Navegador moderno (Chrome, Firefox, Safari, Edge)
 
 ---
 
 ## 🚀 Instalación y Uso
+
+Configura las variables `VIRUSTOTAL_API_KEY`, `HIBP_API_KEY` y las variables de MySQL (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`) en el entorno del servidor. Para una instalación nueva, usa `database/cyberscan_dump.sql`; si ya existe la tabla `scan_logs`, aplica `database/migrate_scan_target_value.sql`. Los resultados de URL y archivos se guardan desde el backend tras completar VirusTotal; las consultas de correo se guardan tras responder HIBP.
 
 ### 1. Clonar el repositorio
 ```bash

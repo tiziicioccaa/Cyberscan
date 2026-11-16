@@ -2,6 +2,7 @@
 
 const express = require('express'); // Importa Express para definir un router independiente.
 const pool = require('./db'); // Importa el pool MySQL propio del plugin.
+const { recordScan } = require('./scanLogs'); // Comparte la persistencia con los endpoints de análisis.
 const { PDFDocument, generatePdf } = require('./pdfGenerator'); // Importa la construcción del informe PDF.
 
 const router = express.Router(); // Crea un router que el servidor principal montará bajo /api/plugin.
@@ -59,8 +60,8 @@ router.post('/log-scan', async (req, res) => { // Registra un análisis enviado 
     if (!allowedStatuses.has(status)) { // Verifica el estado permitido por el enum.
         return res.status(400).json({ error: "status debe ser 'safe', 'suspicious' o 'malicious'." }); // Devuelve error de validación explícito.
     } // Finaliza validación del estado.
-    if (!targetValue || targetValue.length > 255) { // Asegura un objetivo no vacío y compatible con VARCHAR(255).
-        return res.status(400).json({ error: 'target_value es obligatorio y debe tener hasta 255 caracteres.' }); // Rechaza objetivos inválidos.
+    if (!targetValue || targetValue.length > 2048) { // Asegura un objetivo compatible con el esquema SQL.
+        return res.status(400).json({ error: 'target_value es obligatorio y debe tener hasta 2048 caracteres.' }); // Rechaza objetivos inválidos.
     } // Finaliza validación del objetivo.
     if (!Number.isInteger(riskScore) || riskScore < 0 || riskScore > 100) { // Valida rango y formato entero del riesgo.
         return res.status(400).json({ error: 'risk_score debe ser un entero entre 0 y 100.' }); // Rechaza puntajes fuera de rango.
@@ -69,13 +70,9 @@ router.post('/log-scan', async (req, res) => { // Registra un análisis enviado 
         return res.status(400).json({ error: 'details debe ser texto.' }); // Rechaza tipos de datos incorrectos.
     } // Finaliza validación del detalle.
 
-    const safeDetails = String(details || '').trim().slice(0, 10000); // Limita el texto para evitar registros excesivamente grandes.
     try { // Ejecuta el INSERT con parámetros para prevenir inyección SQL.
-        const [result] = await pool.execute( // Inserta únicamente columnas validadas.
-            'INSERT INTO scan_logs (target_type, target_value, status, risk_score, details) VALUES (?, ?, ?, ?, ?)', // Usa placeholders en cada campo externo.
-            [targetType, targetValue, status, riskScore, safeDetails], // Vincula valores de forma segura.
-        ); // Finaliza el INSERT parametrizado.
-        return res.status(201).json({ id: result.insertId, message: 'Análisis registrado.' }); // Confirma el id generado.
+        const id = await recordScan({ targetType, targetValue, status, riskScore, details }); // Inserta el registro validado.
+        return res.status(201).json({ id, message: 'Análisis registrado.' }); // Confirma el id generado.
     } catch (error) { // Gestiona errores de base de datos sin exponerlos al cliente.
         console.error(`[Cyberscan Plugin] Error al guardar un análisis: ${error.message}`); // Conserva detalles técnicos en consola.
         return res.status(503).json({ error: 'No se pudo guardar el análisis. Verifica la conexión con MySQL.' }); // Informa indisponibilidad de almacenamiento.
