@@ -1,8 +1,10 @@
+// Espera a que el HTML esté disponible antes de buscar elementos y conectar la interfaz.
 document.addEventListener('DOMContentLoaded', () => {
 
     /* ======================================================
        1. LÓGICA DE PESTAÑAS (8 MÓDULOS)
        ====================================================== */
+    // Relaciona cada botón de navegación con el panel que debe mostrar.
     const tabs = {
         url: { btn: document.getElementById('btnTabUrl'), content: document.getElementById('tabUrlContent') },
         file: { btn: document.getElementById('btnTabFile'), content: document.getElementById('tabFileContent') },
@@ -14,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
         auth: { btn: document.getElementById('btnTabAuth'), content: document.getElementById('tabAuthContent') }
     };
 
+    // Activa una pestaña, oculta las demás y actualiza las vistas que dependen de ella.
     function switchTab(activeKey) {
         Object.keys(tabs).forEach(key => {
             if (tabs[key].btn && tabs[key].content) {
@@ -47,9 +50,43 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Usa el servidor API configurado o selecciona uno local o publicado por defecto.
+    const pluginApiBase = window.CYBERSCAN_PLUGIN_API_BASE || (
+        window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:3000/api/plugin'
+            : 'https://infortech.onrender.com/api/plugin'
+    );
+    const authApiBase = pluginApiBase.replace(/\/api\/plugin\/?$/, '/api/auth');
+    const scanApiBase = pluginApiBase.replace(/\/api\/plugin\/?$/, '');
+    const authTokenKey = 'cyberscan_auth_token';
+
+    // Centraliza las peticiones de autenticación y adjunta el token de sesión actual.
+    async function authRequest(path, { method = 'GET', body } = {}) {
+        const headers = {};
+        const options = { method, headers };
+        const token = localStorage.getItem(authTokenKey);
+        if (token) headers.Authorization = `Bearer ${token}`;
+        if (body instanceof FormData) {
+            options.body = body;
+        } else if (body !== undefined) {
+            headers['Content-Type'] = 'application/json';
+            options.body = JSON.stringify(body);
+        }
+
+        const response = await fetch(`${authApiBase}${path}`, options);
+        const data = response.status === 204 ? {} : await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const error = new Error(data.error || `Error HTTP ${response.status}`);
+            error.status = response.status;
+            throw error;
+        }
+        return data;
+    }
+
     /* ======================================================
        2. MÓDULO DE AUTENTICACIÓN Y CONTROL DE ACCESO
        ====================================================== */
+    // Referencias a las áreas, formularios y elementos que forman la interfaz de cuenta.
     const authSection = document.getElementById('authSection');
     const mainAppContent = document.getElementById('mainAppContent');
 
@@ -113,103 +150,72 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Presenta mensajes de éxito o error junto a los formularios de cuenta.
     function showAuthMsg(msg, isError = false) {
         authMessage.textContent = msg;
         authMessage.className = `text-center text-xs mt-3 ${isError ? 'text-red-400' : 'text-green-400'}`;
         authMessage.classList.remove('hidden');
     }
 
+    // Oculta el mensaje anterior al cambiar de formulario o limpiar el estado.
     function hideAuthMsg() {
         authMessage.classList.add('hidden');
     }
 
-    // Registro
+    // Crea la cuenta en el servidor y conserva únicamente el token de sesión en el navegador.
     if (registerForm) {
-        registerForm.addEventListener('submit', (e) => {
+        registerForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const user = document.getElementById('regUser').value.trim();
+            const username = document.getElementById('regUser').value.trim();
             const email = document.getElementById('regEmail').value.trim().toLowerCase();
-            const pass = document.getElementById('regPass').value;
-
-            let users = JSON.parse(localStorage.getItem('infortech_users')) || [];
-
-            if (users.some(u => u.email === email)) {
-                showAuthMsg("El correo ya está registrado.", true);
-                return;
+            const password = document.getElementById('regPass').value;
+            const submitButton = registerForm.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            showAuthMsg('Creando cuenta...');
+            try {
+                const result = await authRequest('/register', {
+                    method: 'POST',
+                    body: { username, email, password },
+                });
+                localStorage.setItem(authTokenKey, result.token);
+                registerForm.reset();
+                await checkSession();
+            } catch (error) {
+                showAuthMsg(error.message, true);
+            } finally {
+                submitButton.disabled = false;
             }
-
-            users.push({ user, email, pass, avatar: null });
-            localStorage.setItem('infortech_users', JSON.stringify(users));
-
-            showAuthMsg("¡Cuenta creada exitosamente! Ahora inicia sesión.");
-            registerForm.reset();
-            setTimeout(() => {
-                registerForm.classList.add('hidden');
-                loginForm.classList.remove('hidden');
-                hideAuthMsg();
-            }, 1500);
         });
     }
 
-    // Login
+    // Valida las credenciales en el servidor y guarda el token de la sesión creada.
     if (loginForm) {
-        loginForm.addEventListener('submit', (e) => {
+        loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('loginEmail').value.trim().toLowerCase();
-            const pass = document.getElementById('loginPass').value;
-
-            let users = JSON.parse(localStorage.getItem('infortech_users')) || [];
-            const account = users.find(u => u.email === email && u.pass === pass);
-
-            if (account) {
-                localStorage.setItem('infortech_session', JSON.stringify(account));
-                checkSession();
+            const password = document.getElementById('loginPass').value;
+            const submitButton = loginForm.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            showAuthMsg('Iniciando sesión...');
+            try {
+                const result = await authRequest('/login', {
+                    method: 'POST',
+                    body: { email, password },
+                });
+                localStorage.setItem(authTokenKey, result.token);
                 loginForm.reset();
-                hideAuthMsg();
-            } else {
-                showAuthMsg("Correo o contraseña incorrectos.", true);
+                await checkSession();
+            } catch (error) {
+                showAuthMsg(error.message, true);
+            } finally {
+                submitButton.disabled = false;
             }
         });
     }
 
-    // Olvidé mi Contraseña (Recuperar / Cambiar)
-    if (forgotForm) {
-        forgotForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const email = document.getElementById('forgotEmail').value.trim().toLowerCase();
-            const newPass = document.getElementById('forgotNewPass').value.trim();
-
-            let users = JSON.parse(localStorage.getItem('infortech_users')) || [];
-            const userIndex = users.findIndex(u => u.email === email);
-
-            if (userIndex === -1) {
-                showAuthMsg("No existe ninguna cuenta vinculada a este correo.", true);
-                return;
-            }
-
-            if (newPass) {
-                users[userIndex].pass = newPass;
-                localStorage.setItem('infortech_users', JSON.stringify(users));
-                
-                // Actualizar sesión si es el usuario activo
-                const currentSession = JSON.parse(localStorage.getItem('infortech_session'));
-                if (currentSession && currentSession.email === email) {
-                    currentSession.pass = newPass;
-                    localStorage.setItem('infortech_session', JSON.stringify(currentSession));
-                }
-
-                showAuthMsg("¡Contraseña actualizada con éxito! Ya puedes iniciar sesión.");
-            } else {
-                showAuthMsg(`Tu contraseña actual es: "${users[userIndex].pass}"`);
-            }
-
-            forgotForm.reset();
-        });
-    }
-
-    // Cargar Foto de Perfil (Base64)
+    // Sube la foto al servidor para que quede asociada a la cuenta en la base de datos.
     if (avatarInput) {
-        avatarInput.addEventListener('change', (e) => {
+        avatarInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
@@ -218,32 +224,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const reader = new FileReader();
-            reader.onload = function (evt) {
-                const base64Image = evt.target.result;
-
-                // Guardar en la sesión
-                let session = JSON.parse(localStorage.getItem('infortech_session'));
-                if (session) {
-                    session.avatar = base64Image;
-                    localStorage.setItem('infortech_session', JSON.stringify(session));
-
-                    // Actualizar en el arreglo de usuarios
-                    let users = JSON.parse(localStorage.getItem('infortech_users')) || [];
-                    const index = users.findIndex(u => u.email === session.email);
-                    if (index !== -1) {
-                        users[index].avatar = base64Image;
-                        localStorage.setItem('infortech_users', JSON.stringify(users));
-                    }
-
-                    updateProfileUI(session);
-                }
-            };
-            reader.readAsDataURL(file);
+            const formData = new FormData();
+            formData.append('avatar', file);
+            try {
+                const result = await authRequest('/profile/avatar', { method: 'PUT', body: formData });
+                updateProfileUI(result.user);
+            } catch (error) {
+                alert(`No se pudo guardar la foto de perfil: ${error.message}`);
+            } finally {
+                avatarInput.value = '';
+            }
         });
     }
 
-    // Actualizar UI del Perfil
+    // Sincroniza el nombre, correo y avatar en la pestaña de cuenta y la navegación.
     function updateProfileUI(session) {
         profileName.textContent = session.user;
         profileEmail.textContent = session.email;
@@ -264,25 +258,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Logout
+    // Revoca la sesión en MySQL y elimina el token de este navegador.
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-            localStorage.removeItem('infortech_session');
-            checkSession();
+        logoutBtn.addEventListener('click', async () => {
+            let logoutError;
+            try {
+                await authRequest('/session', { method: 'DELETE' });
+            } catch (error) {
+                logoutError = error;
+            } finally {
+                localStorage.removeItem(authTokenKey);
+            }
+            await checkSession();
+            if (logoutError) {
+                showAuthMsg(`Se cerró la sesión en este navegador, pero el servidor no pudo revocarla: ${logoutError.message}`, true);
+            }
         });
     }
 
-    // Verificar Estado de Sesión al cargar (Muro Mandatorio)
-    function checkSession() {
-        const session = JSON.parse(localStorage.getItem('infortech_session'));
-
-        if (session) {
-            authSection.classList.add('hidden');
-            mainAppContent.classList.remove('hidden');
-            mainAppContent.classList.add('flex');
-            updateProfileUI(session);
-            switchTab('url'); // Abrir pestaña por defecto al entrar
-        } else {
+    // Consulta al servidor para validar el token y recuperar el perfil persistido.
+    async function checkSession() {
+        if (!localStorage.getItem(authTokenKey)) {
             authSection.classList.remove('hidden');
             mainAppContent.classList.add('hidden');
             mainAppContent.classList.remove('flex');
@@ -290,6 +286,32 @@ document.addEventListener('DOMContentLoaded', () => {
             registerForm.classList.add('hidden');
             forgotForm.classList.add('hidden');
             hideAuthMsg();
+            return;
+        }
+
+        try {
+            const result = await authRequest('/me');
+            authSection.classList.add('hidden');
+            mainAppContent.classList.remove('hidden');
+            mainAppContent.classList.add('flex');
+            updateProfileUI(result.user);
+            switchTab('url'); // Abrir pestaña por defecto al entrar
+        } catch (error) {
+            if (error.status === 401) {
+                localStorage.removeItem(authTokenKey);
+                authSection.classList.remove('hidden');
+                mainAppContent.classList.add('hidden');
+                mainAppContent.classList.remove('flex');
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
+                forgotForm.classList.add('hidden');
+                showAuthMsg(error.message, true);
+                return;
+            }
+            authSection.classList.remove('hidden');
+            mainAppContent.classList.add('hidden');
+            mainAppContent.classList.remove('flex');
+            showAuthMsg(`No se pudo validar la sesión con el servidor: ${error.message}`, true);
         }
     }
 
@@ -298,6 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
     /* ======================================================
        3. HISTORIAL LOCAL (LocalStorage)
        ====================================================== */
+    // Añade el análisis más reciente al historial local y conserva como máximo 20.
     function saveToHistory(tipo, detalle, estado) {
         let history = JSON.parse(localStorage.getItem('infortech_history')) || [];
         history.unshift({
@@ -310,6 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('infortech_history', JSON.stringify(history));
     }
 
+    // Codifica caracteres HTML para que los datos del historial se muestren como texto.
     function escapeHtml(value) {
         return String(value).replace(/[&<>"']/g, character => ({
             '&': '&amp;',
@@ -320,14 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
         })[character]);
     }
 
-    // Permite cambiar el backend del plugin sin editar la lógica del escáner.
-    const pluginApiBase = window.CYBERSCAN_PLUGIN_API_BASE || (
-        window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? 'http://localhost:3000/api/plugin'
-            : 'https://infortech.onrender.com/api/plugin'
-    );
-    const scanApiBase = pluginApiBase.replace(/\/api\/plugin\/?$/, '');
-
+    // Renderiza el historial guardado en LocalStorage dentro de su panel.
     function renderHistory() {
         const container = document.getElementById('historyListContainer');
         const history = JSON.parse(localStorage.getItem('infortech_history')) || [];
@@ -349,6 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+    // Elimina solamente el historial local cuando el usuario solicita limpiarlo.
     if (clearHistoryBtn) {
         clearHistoryBtn.addEventListener('click', () => {
             localStorage.removeItem('infortech_history');
@@ -364,6 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const analyzerStatus = document.getElementById('analyzerStatus');
     const resultsContainer = document.getElementById('resultsContainer');
 
+    // Consulta VirusTotal y, en paralelo, intenta obtener el HTML de la URL para mostrar metadatos.
     if (analyzeButton) {
         analyzeButton.addEventListener('click', async () => {
             let url = urlInput.value.trim();
@@ -376,10 +395,12 @@ document.addEventListener('DOMContentLoaded', () => {
             analyzeButton.classList.add('loading');
             resultsContainer.innerHTML = '<p class="text-center text-gray-400">Procesando...</p>';
 
+            // Limita el tiempo de espera del análisis del backend para evitar una espera indefinida.
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 90000);
 
             try {
+                // allSettled permite mostrar el resultado disponible aunque una de las dos consultas falle.
                 const [vtResult, htmlResult] = await Promise.allSettled([
                     fetch(`${scanApiBase}/analizar?url=${encodeURIComponent(url)}`, { signal: controller.signal })
                         .then(async res => {
@@ -421,6 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileInput = document.getElementById('fileInput');
     const analyzeFileButton = document.getElementById('analyzeFileButton');
 
+    // Envía el archivo seleccionado al backend y muestra el resultado de VirusTotal.
     if (analyzeFileButton) {
         analyzeFileButton.addEventListener('click', async () => {
             if (!fileInput.files[0]) return alert("Selecciona un archivo primero.");
@@ -494,6 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Construye las tarjetas de resultados del escaneo y del contenido HTML, si están disponibles.
     function renderResult(vt, html) {
         analyzerStatus.textContent = 'Completado';
         analyzerStatus.className = 'text-lg mt-4 h-6 text-green-400';
@@ -557,6 +580,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const breachEmailInput = document.getElementById("breach-email");
     const breachResult = document.getElementById("breach-result");
 
+    // Consulta al backend si el correo aparece en filtraciones y actualiza el historial local.
     if (breachBtn) {
         breachBtn.addEventListener("click", async () => {
             const email = breachEmailInput.value.trim();
@@ -604,10 +628,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const generatePassBtn = document.getElementById('generatePassBtn');
     const copyGenPass = document.getElementById('copyGenPass');
 
+    // Mantiene visible el valor seleccionado para la longitud de la contraseña.
     if (genLength) {
         genLength.addEventListener('input', (e) => lengthVal.textContent = e.target.value);
     }
 
+    // Genera una contraseña aleatoria según longitud y conjuntos de caracteres elegidos.
     function generatePassword() {
         const length = parseInt(genLength.value);
         let chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -626,6 +652,7 @@ document.addEventListener('DOMContentLoaded', () => {
         generatePassword();
     }
 
+    // Copia el resultado generado al portapapeles y ofrece una confirmación temporal.
     if (copyGenPass) {
         copyGenPass.addEventListener('click', () => {
             if (!genPasswordOutput.value) return;
@@ -642,6 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const valStrengthBar = document.getElementById('valStrengthBar');
     const valStrengthText = document.getElementById('valStrengthText');
 
+    // Evalúa la contraseña solo en el navegador y actualiza el indicador de fortaleza.
     if (valPasswordInput) {
         valPasswordInput.addEventListener('input', () => {
             const pass = valPasswordInput.value;
@@ -652,6 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // Suma criterios simples de longitud y variedad; es una guía, no una auditoría criptográfica.
             let score = 0;
             if (pass.length >= 8) score++;
             if (pass.length >= 12) score++;

@@ -13,7 +13,7 @@ Una plataforma web educativa e interactiva para aprendizaje de **ciberseguridad*
 - **Educación en Ciberseguridad**: Glosario interactivo con términos y conceptos clave
 - **Análisis de Seguridad**: Análisis de URLs y archivos mediante **VirusTotal API**
 - **Herramientas de Protección**: Generador y validador de contraseñas, verificación de filtraciones
-- **Autenticación Integrada**: Sistema de registro, login y recuperación de contraseña
+- **Autenticación Integrada**: Registro e inicio de sesión con cuentas persistentes en MySQL
 - **Historial de Análisis**: Registros locales en el navegador y resultados persistentes en MySQL
 
 ---
@@ -23,10 +23,12 @@ Una plataforma web educativa e interactiva para aprendizaje de **ciberseguridad*
 ### 1. 🔐 Autenticación y Gestión de Usuarios
 - Registro de nuevas cuentas
 - Inicio de sesión seguro
-- Recuperación/cambio de contraseña
+- Contraseñas almacenadas como hash scrypt en el servidor
 - Foto de perfil personalizable (Base64)
 - Cierre de sesión
-- Almacenamiento seguro en localStorage
+- Correo único por cuenta y validación de formato (sin confirmar que el buzón exista)
+- Sesiones revocables guardadas en MySQL
+- La recuperación de contraseña está deshabilitada hasta contar con un método seguro de verificación
 
 ### 2. 🌐 Análisis de URLs
 - Verifica la seguridad de cualquier URL
@@ -80,7 +82,7 @@ Una plataforma web educativa e interactiva para aprendizaje de **ciberseguridad*
 - **HTML5** - Estructura semántica
 - **CSS3** - Estilos con Tailwind CSS
 - **JavaScript (Vanilla)** - Lógica interactiva
-- **LocalStorage API** - Almacenamiento local
+- **LocalStorage API** - Token de sesión e historial local de análisis
 
 ### Backend
 - **Node.js** - Runtime
@@ -113,7 +115,7 @@ instalar node.js
 instalar wampserver
 instalar workbench
 
-Configura las variables `VIRUSTOTAL_API_KEY` (), y las variables de MySQL (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`) en el entorno del servidor. Para una instalación nueva, usa `database/cyberscan_dump.sql`; si ya existe la tabla `scan_logs`, aplica `database/migrate_scan_target_value.sql`. Los resultados de URL y archivos se guardan desde el backend tras completar VirusTotal; las consultas de correo se guardan tras responder HIBP.
+Configura las variables `VIRUSTOTAL_API_KEY` y las variables de MySQL (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`) en el entorno del servidor. Para una instalación nueva, usa `database/cyberscan_dump.sql`. Si ya existe la base de datos, aplica `database/migrate_scan_target_value.sql` si aún no ampliaste `scan_logs.target_value`, y aplica `database/migrate_user_accounts.sql` para crear las tablas de cuentas y sesiones. Las cuentas nuevas se guardan en MySQL; la aplicación comprueba el formato del correo, pero no verifica la existencia ni la propiedad del buzón. Las contraseñas se almacenan con scrypt y no se puede recuperar una contraseña olvidada desde la interfaz.
 
 Poner estos comandos en la powershell para iniciar node.js:
 

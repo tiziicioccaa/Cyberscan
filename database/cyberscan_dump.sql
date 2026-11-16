@@ -21,6 +21,29 @@ CREATE TABLE IF NOT EXISTS scan_logs (
     INDEX idx_scan_logs_target_type (target_type)
 ) ENGINE=InnoDB;
 
+-- Guarda las cuentas creadas desde el sitio; nunca almacena contraseñas en texto plano.
+CREATE TABLE IF NOT EXISTS user_accounts (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(80) NOT NULL,
+    email VARCHAR(254) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    avatar MEDIUMTEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_user_accounts_email (email)
+) ENGINE=InnoDB;
+
+-- Mantiene las sesiones revocables guardando solo el hash de cada token.
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    token_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+    account_id INT UNSIGNED NOT NULL,
+    expires_at DATETIME NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_auth_sessions_expires_at (expires_at),
+    CONSTRAINT fk_auth_sessions_account
+        FOREIGN KEY (account_id) REFERENCES user_accounts (id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 -- Agrega registros demostrativos: dominios .example y correos reservados para documentación.
 -- Los resultados son datos ficticios de prueba y no representan análisis reales.
 INSERT INTO scan_logs (target_type, target_value, status, risk_score, details, created_at) VALUES

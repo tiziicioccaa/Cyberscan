@@ -7,15 +7,19 @@ const crypto = require('crypto');
 const { recordScan } = require('./cyberscan-plugin/scanLogs');
 
 const app = express();
+// Habilita llamadas desde el frontend y decodifica JSON con un límite para reducir cargas excesivas.
 app.use(cors());
 app.use(express.json({ limit: '16kb' }));
 
 // Monta el plugin independiente de auditoría bajo su prefijo de API.
 app.use('/api/plugin', require('./cyberscan-plugin/pluginRoutes'));
+// Publica las rutas de registro, inicio/cierre de sesión y perfil de usuario.
+app.use('/api/auth', require('./cyberscan-plugin/authRoutes'));
 
-// Configuración de Multer para recibir archivos en memoria
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } }); // 25MB límite
+// Mantiene los archivos en memoria durante la petición y rechaza cargas mayores a 25 MB.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
+// Las credenciales se leen del entorno para no incluirlas en el código fuente.
 const apiKey = process.env.VIRUSTOTAL_API_KEY;
 const hibpApiKey = process.env.HIBP_API_KEY;
 
@@ -26,6 +30,7 @@ if (!hibpApiKey) {
     console.warn('HIBP_API_KEY no está configurada: las consultas de filtraciones responderán con HTTP 503.');
 }
 
+// Resume las estadísticas de un proveedor en una categoría y un puntaje de riesgo.
 function getScanAssessment(stats) {
     const counts = Object.values(stats || {}).reduce((total, value) => total + (Number(value) || 0), 0);
     const malicious = Number(stats && stats.malicious) || 0;
@@ -36,6 +41,7 @@ function getScanAssessment(stats) {
     };
 }
 
+// Reduce y serializa los hallazgos de VirusTotal para almacenarlos en el historial.
 function getVirusTotalDetails(stats, results, metadata) {
     const allDetections = Object.entries(results || {})
         .filter(([, result]) => result && (result.category === 'malicious' || result.category === 'suspicious'))
@@ -53,6 +59,7 @@ function getVirusTotalDetails(stats, results, metadata) {
     });
 }
 
+// Guarda en MySQL el resultado ya normalizado de un análisis de URL o archivo.
 async function saveVirusTotalScan(targetType, targetValue, stats, results, metadata) {
     const assessment = getScanAssessment(stats);
     return recordScan({
@@ -64,7 +71,7 @@ async function saveVirusTotalScan(targetType, targetValue, stats, results, metad
     });
 }
 
-// --- ENDPOINT 1: ANALIZAR URL ---
+// Consulta VirusTotal por URL; si aún no existe, solicita un análisis y vuelve a consultarlo.
 app.get('/analizar', async (req, res) => {
     const urlToAnalyze = typeof req.query.url === 'string' ? req.query.url.trim() : '';
     if (!urlToAnalyze) return res.status(400).json({ error: 'Falta la URL' });
@@ -127,7 +134,7 @@ app.get('/analizar', async (req, res) => {
     }
 });
 
-// --- ENDPOINT 2: ANALIZAR ARCHIVO ---
+// Recibe un archivo, lo envía a VirusTotal, espera su análisis y persiste el resultado.
 app.post('/analizar-archivo', upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' });
     if (!apiKey) return res.status(503).json({ error: 'El escaneo de archivos requiere configurar VIRUSTOTAL_API_KEY.' });
@@ -191,6 +198,7 @@ app.post('/analizar-archivo', upload.single('file'), async (req, res) => {
     }
 });
 
+// Consulta Have I Been Pwned para un correo y guarda un resumen de las filtraciones encontradas.
 app.post('/api/plugin/scan-email', async (req, res) => {
     const email = req.body && typeof req.body.email === 'string' ? req.body.email.trim() : '';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
@@ -255,5 +263,6 @@ app.post('/api/plugin/scan-email', async (req, res) => {
     }
 });
 
+// Inicia el servidor HTTP en el puerto indicado por el entorno o en el puerto local por defecto.
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor escuchando en puerto ${PORT}`));
