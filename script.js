@@ -310,6 +310,60 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('infortech_history', JSON.stringify(history));
     }
 
+    // Permite cambiar el backend del plugin sin editar la lógica del escáner.
+    const pluginApiBase = window.CYBERSCAN_PLUGIN_API_BASE || (
+        window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:3000/api/plugin'
+            : 'https://infortech.onrender.com/api/plugin'
+    );
+
+    // Registra los resultados de VirusTotal en el plugin sin interrumpir el análisis si MySQL no está disponible.
+    async function logScanToPlugin(targetType, targetValue, stats) {
+        const malicious = Number(stats.malicious) || 0;
+        const suspicious = Number(stats.suspicious) || 0;
+        const engineCount = Object.values(stats).reduce((total, value) => total + (Number(value) || 0), 0);
+        const riskScore = engineCount ? Math.min(100, Math.round(((malicious + suspicious * 0.5) / engineCount) * 100)) : 0;
+        const status = malicious > 0 ? 'malicious' : suspicious > 0 ? 'suspicious' : 'safe';
+        const details = `VirusTotal: ${malicious} detecciones maliciosas, ${suspicious} sospechosas y ${Number(stats.harmless) || 0} seguras.`;
+
+        try {
+            const response = await fetch(`${pluginApiBase}/log-scan`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target_type: targetType,
+                    target_value: targetValue.slice(0, 255),
+                    status,
+                    risk_score: riskScore,
+                    details
+                })
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        } catch (error) {
+            console.warn('[Cyberscan Plugin] No se pudo guardar el análisis:', error.message);
+        }
+    }
+
+    // Guarda la actividad del módulo de correo como demostración, sin persistir la dirección personal.
+    async function logEmailDemoToPlugin(status) {
+        try {
+            const response = await fetch(`${pluginApiBase}/log-scan`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target_type: 'email',
+                    target_value: 'Simulación de verificación de correo',
+                    status,
+                    risk_score: status === 'suspicious' ? 70 : 0,
+                    details: 'Resultado simulado por la interfaz educativa; no se consultaron bases de datos de filtraciones y no se guardó la dirección ingresada.'
+                })
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        } catch (error) {
+            console.warn('[Cyberscan Plugin] No se pudo registrar la demostración de correo:', error.message);
+        }
+    }
+
     function renderHistory() {
         const container = document.getElementById('historyListContainer');
         const history = JSON.parse(localStorage.getItem('infortech_history')) || [];
@@ -374,6 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (vtResult.status === 'fulfilled' && vtResult.value.stats) {
                     const isSafe = vtResult.value.stats.malicious === 0;
                     saveToHistory('URL', url, isSafe ? 'safe' : 'danger');
+                    logScanToPlugin('url', url, vtResult.value.stats);
                 }
             } catch (error) {
                 analyzerStatus.textContent = 'Error crítico de conexión (Timeout).';
@@ -417,10 +472,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     renderResult({ status: 'fulfilled', value: data }, null);
                     const isSafe = data.stats.malicious === 0;
                     saveToHistory('Archivo', file.name, isSafe ? 'safe' : 'danger');
+                    logScanToPlugin('file', file.name, data.stats);
                 } else {
                     throw new Error(data.error || "Error desconocido del servidor");
                 }
-
             } catch (error) {
                 analyzerStatus.textContent = 'Error al analizar archivo.';
                 analyzerStatus.className = 'text-lg mt-4 h-6 text-red-400';
@@ -428,6 +483,37 @@ document.addEventListener('DOMContentLoaded', () => {
             } finally {
                 analyzeFileButton.disabled = false; 
                 analyzeFileButton.classList.remove('loading');
+            }
+        });
+    }
+
+    // Descarga el informe del plugin y comunica errores de API sin cambiar de página.
+    const downloadReportPdfButton = document.getElementById('downloadReportPdfButton');
+    if (downloadReportPdfButton) {
+        downloadReportPdfButton.addEventListener('click', async () => {
+            const originalText = downloadReportPdfButton.textContent;
+            downloadReportPdfButton.disabled = true;
+            downloadReportPdfButton.textContent = 'Generando informe...';
+            try {
+                const response = await fetch(`${pluginApiBase}/report/pdf`);
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({}));
+                    throw new Error(error.error || `Error HTTP ${response.status}`);
+                }
+                const pdfBlob = await response.blob();
+                const downloadUrl = URL.createObjectURL(pdfBlob);
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = 'Reporte_Ciberseguridad.pdf';
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(downloadUrl);
+            } catch (error) {
+                alert(`No se pudo descargar el reporte: ${error.message}`);
+            } finally {
+                downloadReportPdfButton.disabled = false;
+                downloadReportPdfButton.textContent = originalText;
             }
         });
     }
@@ -510,10 +596,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     breachResult.className = "mt-4 p-3 rounded-lg text-sm bg-red-900/50 border border-red-500 text-red-300";
                     breachResult.textContent = `Resultado simulado: el correo ${email} coincide con el ejemplo de prueba. No se consultaron filtraciones reales.`;
                     saveToHistory('Demo correo', email, 'danger');
+                    logEmailDemoToPlugin('suspicious');
                 } else {
                     breachResult.className = "mt-4 p-3 rounded-lg text-sm bg-green-900/50 border border-green-500 text-green-300";
                     breachResult.textContent = `Resultado simulado: el correo ${email} no coincide con el ejemplo de prueba. No se consultaron filtraciones reales.`;
                     saveToHistory('Demo correo', email, 'safe');
+                    logEmailDemoToPlugin('safe');
                 }
             }, 800);
         });

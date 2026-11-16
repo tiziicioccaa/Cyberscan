@@ -1,6 +1,5 @@
-
 {
-  "name":"Infortech",
+  "name": "Infortech",
   "version": "2.0.0",
   "description": "Backend para analizar URLs y Archivos con VirusTotal",
   "main": "server.js",
@@ -15,6 +14,8 @@
     "cors": "^2.8.5",
     "node-fetch": "^2.6.7",
     "multer": "^1.4.5-lts.1",
-    "form-data": "^4.0.0"
+    "form-data": "^4.0.0",
+    "mysql2": "^3.0.0",
+    "pdfkit": "^0.13.0"
   }
 }

@@ -7,20 +7,23 @@ const FormData = require('form-data');
 const app = express();
 app.use(cors());
 
+// Monta el plugin independiente de auditoría bajo su prefijo de API.
+app.use('/api/plugin', require('./cyberscan-plugin/pluginRoutes'));
+
 // Configuración de Multer para recibir archivos en memoria
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } }); // 25MB límite
 
 const apiKey = process.env.VIRUSTOTAL_API_KEY;
 
 if (!apiKey) {
-    console.error('¡ERROR CRÍTICO! La variable VIRUSTOTAL_API_KEY no está configurada.');
-    process.exit(1);
+    console.warn('VIRUSTOTAL_API_KEY no está configurada: los escaneos VirusTotal responderán con HTTP 503; el plugin PDF seguirá disponible.');
 }
 
 // --- ENDPOINT 1: ANALIZAR URL ---
 app.get('/analizar', async (req, res) => {
     const urlToAnalyze = req.query.url;
     if (!urlToAnalyze) return res.status(400).json({ error: 'Falta la URL' });
+    if (!apiKey) return res.status(503).json({ error: 'El escaneo de URL requiere configurar VIRUSTOTAL_API_KEY.' });
 
     console.log(`Analizando URL: ${urlToAnalyze}`);
 
@@ -61,6 +64,7 @@ app.get('/analizar', async (req, res) => {
 // --- ENDPOINT 2: ANALIZAR ARCHIVO ---
 app.post('/analizar-archivo', upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' });
+    if (!apiKey) return res.status(503).json({ error: 'El escaneo de archivos requiere configurar VIRUSTOTAL_API_KEY.' });
 
     console.log(`Recibiendo archivo: ${req.file.originalname}`);
 
