@@ -97,6 +97,13 @@ Una plataforma web educativa e interactiva para aprendizaje de **ciberseguridad*
 - **Have I Been Pwned API** - Consulta de filtraciones de correos
 - **AllOrigins** - Proxy CORS para análisis de contenido
 
+## 📁 Organización del código
+
+- `cyberscan-plugin/`: generación del PDF y su endpoint de descarga.
+- `routes/`: endpoints REST de autenticación, escaneos y estadísticas.
+- `database/`: conexión MySQL, persistencia de análisis y scripts SQL.
+- `services/`: cálculos compartidos de estadísticas usados por la API y el reporte.
+
 ---
 
 ## 📋 Requisitos Previos

@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { promisify } = require('util');
 const express = require('express');
 const multer = require('multer');
-const pool = require('./db');
+const pool = require('../database/db');
 
 const router = express.Router();
 const scrypt = promisify(crypto.scrypt);

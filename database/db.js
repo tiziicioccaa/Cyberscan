@@ -19,15 +19,15 @@ async function verifyDatabaseConnection() { // Comprueba la conexión al iniciar
     let connection; // Conserva la conexión temporal para poder liberarla siempre.
     try { // Captura fallos de configuración o de disponibilidad de MySQL.
         connection = await pool.getConnection(); // Solicita una conexión al pool.
-        console.info('[Cyberscan Plugin] Conexión a MySQL establecida.'); // Informa que la base de datos responde.
+        console.info('[Cyberscan DB] Conexión a MySQL establecida.'); // Informa que la base de datos responde.
     } catch (error) { // Maneja errores sin tumbar la aplicación base.
-        console.error(`[Cyberscan Plugin] No se pudo conectar a MySQL: ${error.message}`); // Explica el fallo en consola.
-        console.error('[Cyberscan Plugin] Verifica MySQL, cyberscan_db y las variables DB_HOST, DB_USER, DB_PASSWORD y DB_NAME.'); // Sugiere las verificaciones relevantes.
+        console.error(`[Cyberscan DB] No se pudo conectar a MySQL: ${error.message}`); // Explica el fallo en consola.
+        console.error('[Cyberscan DB] Verifica MySQL, cyberscan_db y las variables DB_HOST, DB_USER, DB_PASSWORD y DB_NAME.'); // Sugiere las verificaciones relevantes.
     } finally { // Ejecuta la liberación incluso si la conexión falló.
         if (connection) connection.release(); // Devuelve la conexión al pool si fue obtenida.
     } // Termina el bloque de manejo de conexión.
 } // Finaliza la función de verificación inicial.
 
-verifyDatabaseConnection(); // Ejecuta una comprobación informativa al cargar las rutas del plugin.
+verifyDatabaseConnection(); // Ejecuta una comprobación informativa al cargar el acceso a datos.
 
-module.exports = pool; // Expone el pool para las rutas API del plugin.
+module.exports = pool; // Expone el pool a las rutas y servicios que consultan MySQL.

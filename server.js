@@ -4,17 +4,19 @@ const fetch = require('node-fetch');
 const multer = require('multer');
 const FormData = require('form-data');
 const crypto = require('crypto');
-const { recordScan } = require('./cyberscan-plugin/scanLogs');
+const { recordScan } = require('./database/scanLogs');
 
 const app = express();
 // Habilita llamadas desde el frontend y decodifica JSON con un límite para reducir cargas excesivas.
 app.use(cors());
 app.use(express.json({ limit: '16kb' }));
 
-// Monta el plugin independiente de auditoría bajo su prefijo de API.
-app.use('/api/plugin', require('./cyberscan-plugin/pluginRoutes'));
+// Publica las rutas de escaneos y estadísticas bajo su prefijo de API existente.
+app.use('/api/plugin', require('./routes/scanRoutes'));
+// Mantiene la descarga PDF separada del resto de las rutas del plugin.
+app.use('/api/plugin', require('./cyberscan-plugin/pdfRoutes'));
 // Publica las rutas de registro, inicio/cierre de sesión y perfil de usuario.
-app.use('/api/auth', require('./cyberscan-plugin/authRoutes'));
+app.use('/api/auth', require('./routes/authRoutes'));
 
 // Mantiene los archivos en memoria durante la petición y rechaza cargas mayores a 25 MB.
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
