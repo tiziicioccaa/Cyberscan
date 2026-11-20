@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabs = {
         url: { btn: document.getElementById('btnTabUrl'), content: document.getElementById('tabUrlContent') },
         file: { btn: document.getElementById('btnTabFile'), content: document.getElementById('tabFileContent') },
+        sentinel: { btn: document.getElementById('btnTabSentinel'), content: document.getElementById('tabSentinelContent') },
         email: { btn: document.getElementById('btnTabEmail'), content: document.getElementById('tabEmailContent') },
         gen: { btn: document.getElementById('btnTabGen'), content: document.getElementById('tabGenContent') },
         val: { btn: document.getElementById('btnTabVal'), content: document.getElementById('tabValContent') },
@@ -42,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Si entra a historial, renderizarlo dinámicamente
         if (activeKey === 'history') renderHistory();
+        if (activeKey === 'sentinel') loadSentinelData();
     }
 
     Object.keys(tabs).forEach(key => {
@@ -57,11 +59,12 @@ document.addEventListener('DOMContentLoaded', () => {
             : 'https://infortech.onrender.com/api/plugin'
     );
     const authApiBase = pluginApiBase.replace(/\/api\/plugin\/?$/, '/api/auth');
+    const sentinelApiBase = pluginApiBase.replace(/\/api\/plugin\/?$/, '/api/sentinel');
     const scanApiBase = pluginApiBase.replace(/\/api\/plugin\/?$/, '');
     const authTokenKey = 'cyberscan_auth_token';
 
-    // Centraliza las peticiones de autenticación y adjunta el token de sesión actual.
-    async function authRequest(path, { method = 'GET', body } = {}) {
+    // Centraliza las peticiones protegidas y adjunta el token de sesión actual.
+    async function authenticatedRequest(apiBase, path, { method = 'GET', body } = {}) {
         const headers = {};
         const options = { method, headers };
         const token = localStorage.getItem(authTokenKey);
@@ -73,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
             options.body = JSON.stringify(body);
         }
 
-        const response = await fetch(`${authApiBase}${path}`, options);
+        const response = await fetch(`${apiBase}${path}`, options);
         const data = response.status === 204 ? {} : await response.json().catch(() => ({}));
         if (!response.ok) {
             const error = new Error(data.error || `Error HTTP ${response.status}`);
@@ -81,6 +84,14 @@ document.addEventListener('DOMContentLoaded', () => {
             throw error;
         }
         return data;
+    }
+
+    function authRequest(path, options) {
+        return authenticatedRequest(authApiBase, path, options);
+    }
+
+    function sentinelRequest(path, options) {
+        return authenticatedRequest(sentinelApiBase, path, options);
     }
 
     /* ======================================================
@@ -318,7 +329,184 @@ document.addEventListener('DOMContentLoaded', () => {
     checkSession();
 
     /* ======================================================
-       3. HISTORIAL LOCAL (LocalStorage)
+       3. IA INTEGRADA (ASISTENTE Y POLÍTICAS SENTINEL)
+       ====================================================== */
+    const sentinelChatForm = document.getElementById('sentinelChatForm');
+    const sentinelQuestion = document.getElementById('sentinelQuestion');
+    const sentinelChatHistory = document.getElementById('sentinelChatHistory');
+    const sentinelChatStatus = document.getElementById('sentinelChatStatus');
+    const sentinelAskButton = document.getElementById('sentinelAskButton');
+    const sentinelEvaluateForm = document.getElementById('sentinelEvaluateForm');
+    const sentinelResource = document.getElementById('sentinelResource');
+    const sentinelEvaluationResult = document.getElementById('sentinelEvaluationResult');
+    const sentinelPolicyForm = document.getElementById('sentinelPolicyForm');
+    const sentinelPolicyStatus = document.getElementById('sentinelPolicyStatus');
+    const sentinelPolicyList = document.getElementById('sentinelPolicyList');
+
+    function setSentinelStatus(element, message, isError = false) {
+        element.textContent = message;
+        element.className = `mt-3 text-sm ${isError ? 'text-red-400' : 'text-gray-400'}`;
+    }
+
+    function renderSentinelChat(messages) {
+        sentinelChatHistory.innerHTML = '';
+        if (!messages.length) {
+            sentinelChatHistory.textContent = 'Todavía no hay conversaciones.';
+            sentinelChatHistory.className = 'mt-4 max-h-80 space-y-3 overflow-y-auto text-sm text-gray-500';
+            return;
+        }
+
+        sentinelChatHistory.className = 'mt-4 max-h-80 space-y-3 overflow-y-auto';
+        messages.forEach((message) => {
+            const card = document.createElement('article');
+            card.className = 'rounded-lg bg-gray-800 p-3';
+            const question = document.createElement('p');
+            question.className = 'whitespace-pre-wrap text-sm text-blue-200';
+            question.textContent = `Tú: ${message.question}`;
+            const answer = document.createElement('p');
+            answer.className = 'mt-2 whitespace-pre-wrap text-sm text-gray-100';
+            answer.textContent = `Sentinel: ${message.answer}`;
+            const source = document.createElement('p');
+            source.className = 'mt-2 text-xs text-gray-500';
+            source.textContent = `Fuente: ${message.source}`;
+            card.append(question, answer, source);
+            sentinelChatHistory.appendChild(card);
+        });
+        sentinelChatHistory.scrollTop = sentinelChatHistory.scrollHeight;
+    }
+
+    async function loadSentinelChat() {
+        const result = await sentinelRequest('/chat/history');
+        renderSentinelChat(result.messages);
+    }
+
+    function renderSentinelPolicies(policies) {
+        sentinelPolicyList.innerHTML = '';
+        if (!policies.length) {
+            sentinelPolicyList.textContent = 'No hay políticas registradas.';
+            return;
+        }
+
+        policies.forEach((policy) => {
+            const card = document.createElement('article');
+            card.className = 'flex flex-col gap-3 rounded-lg bg-gray-800 p-3 sm:flex-row sm:items-center sm:justify-between';
+            const details = document.createElement('div');
+            details.className = 'min-w-0';
+            const heading = document.createElement('p');
+            heading.className = 'break-all font-bold text-white';
+            heading.textContent = `${policy.action}: ${policy.pattern} (${policy.targetType}, riesgo ${policy.riskLevel})`;
+            const description = document.createElement('p');
+            description.className = 'mt-1 text-sm text-gray-400';
+            description.textContent = policy.description;
+            details.append(heading, description);
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.className = 'shrink-0 self-start rounded-lg bg-red-700 px-3 py-2 text-sm font-bold hover:bg-red-600 sm:self-center';
+            removeButton.textContent = 'Eliminar';
+            removeButton.addEventListener('click', async () => {
+                removeButton.disabled = true;
+                try {
+                    await sentinelRequest(`/policies/${policy.id}`, { method: 'DELETE' });
+                    setSentinelStatus(sentinelPolicyStatus, 'Política eliminada.');
+                    await loadSentinelPolicies();
+                } catch (error) {
+                    setSentinelStatus(sentinelPolicyStatus, error.message, true);
+                    removeButton.disabled = false;
+                }
+            });
+            card.append(details, removeButton);
+            sentinelPolicyList.appendChild(card);
+        });
+    }
+
+    async function loadSentinelPolicies() {
+        const result = await sentinelRequest('/policies');
+        renderSentinelPolicies(result.policies);
+    }
+
+    async function loadSentinelData() {
+        const results = await Promise.allSettled([loadSentinelChat(), loadSentinelPolicies()]);
+        if (results[0].status === 'rejected') {
+            setSentinelStatus(sentinelChatStatus, results[0].reason.message, true);
+        }
+        if (results[1].status === 'rejected') {
+            setSentinelStatus(sentinelPolicyStatus, results[1].reason.message, true);
+        }
+    }
+
+    if (sentinelChatForm) {
+        sentinelChatForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const question = sentinelQuestion.value.trim();
+            if (!question) return;
+
+            sentinelAskButton.disabled = true;
+            setSentinelStatus(sentinelChatStatus, 'Consultando Sentinel...');
+            try {
+                const result = await sentinelRequest('/chat', { method: 'POST', body: { question } });
+                sentinelQuestion.value = '';
+                setSentinelStatus(sentinelChatStatus, `Respuesta generada. Fuente: ${result.source}`);
+                await loadSentinelChat();
+            } catch (error) {
+                setSentinelStatus(sentinelChatStatus, error.message, true);
+            } finally {
+                sentinelAskButton.disabled = false;
+            }
+        });
+    }
+
+    if (sentinelEvaluateForm) {
+        sentinelEvaluateForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const button = document.getElementById('sentinelEvaluateButton');
+            button.disabled = true;
+            sentinelEvaluationResult.textContent = 'Evaluando recurso...';
+            try {
+                const result = await sentinelRequest('/policies/evaluate', {
+                    method: 'POST',
+                    body: { resource: sentinelResource.value.trim() },
+                });
+                sentinelEvaluationResult.textContent = `${result.action} — riesgo ${result.riskLevel}/100. ${result.reason}`;
+                sentinelEvaluationResult.className = `mt-3 text-sm ${result.action === 'BLOQUEAR' ? 'text-red-400' : result.action === 'PERMITIR' ? 'text-green-400' : 'text-gray-300'}`;
+            } catch (error) {
+                sentinelEvaluationResult.textContent = error.message;
+                sentinelEvaluationResult.className = 'mt-3 text-sm text-red-400';
+            } finally {
+                button.disabled = false;
+            }
+        });
+    }
+
+    if (sentinelPolicyForm) {
+        sentinelPolicyForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const submitButton = document.getElementById('sentinelPolicySubmit');
+            submitButton.disabled = true;
+            setSentinelStatus(sentinelPolicyStatus, 'Guardando política...');
+            try {
+                await sentinelRequest('/policies', {
+                    method: 'POST',
+                    body: {
+                        targetType: document.getElementById('sentinelPolicyType').value,
+                        pattern: document.getElementById('sentinelPolicyPattern').value,
+                        action: document.getElementById('sentinelPolicyAction').value,
+                        riskLevel: document.getElementById('sentinelPolicyRisk').value,
+                        description: document.getElementById('sentinelPolicyDescription').value,
+                    },
+                });
+                sentinelPolicyForm.reset();
+                setSentinelStatus(sentinelPolicyStatus, 'Política agregada.');
+                await loadSentinelPolicies();
+            } catch (error) {
+                setSentinelStatus(sentinelPolicyStatus, error.message, true);
+            } finally {
+                submitButton.disabled = false;
+            }
+        });
+    }
+
+    /* ======================================================
+       4. HISTORIAL LOCAL (LocalStorage)
        ====================================================== */
     // Añade el análisis más reciente al historial local y conserva como máximo 20.
     function saveToHistory(tipo, detalle, estado) {

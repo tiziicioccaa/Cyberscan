@@ -186,3 +186,4 @@ router.use((error, req, res, next) => {
 });
 
 module.exports = router;
+module.exports.authenticate = authenticate;

@@ -17,6 +17,8 @@ app.use('/api/plugin', require('./routes/scanRoutes'));
 app.use('/api/plugin', require('./cyberscan-plugin/pdfRoutes'));
 // Publica las rutas de registro, inicio/cierre de sesión y perfil de usuario.
 app.use('/api/auth', require('./routes/authRoutes'));
+// Integra Sentinel en la misma API y reutiliza la sesión y el pool MySQL existentes.
+app.use('/api/sentinel', require('./routes/sentinelRoutes'));
 
 // Mantiene los archivos en memoria durante la petición y rechaza cargas mayores a 25 MB.
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });

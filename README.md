@@ -100,9 +100,10 @@ Una plataforma web educativa e interactiva para aprendizaje de **ciberseguridad*
 ## 📁 Organización del código
 
 - `cyberscan-plugin/`: generación del PDF y su endpoint de descarga.
-- `routes/`: endpoints REST de autenticación, escaneos y estadísticas.
+- `routes/`: endpoints REST de autenticación, escaneos, estadísticas e IAintegrada.
 - `database/`: conexión MySQL, persistencia de análisis y scripts SQL.
-- `services/`: cálculos compartidos de estadísticas usados por la API y el reporte.
+- `services/`: lógica compartida de estadísticas e IAintegrada.
+- `plugin-ws-sentinel/`: fuente original del plugin legado, conservada como referencia; la integración actual no ejecuta su servidor ni usa su SQLite.
 
 ---
 
@@ -123,6 +124,10 @@ instalar wampserver
 instalar workbench
 
 Configura las variables `VIRUSTOTAL_API_KEY` y las variables de MySQL (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`) en el entorno del servidor. Para una instalación nueva, usa `database/cyberscan_dump.sql`. Si ya existe la base de datos, aplica `database/migrate_scan_target_value.sql` si aún no ampliaste `scan_logs.target_value`, y aplica `database/migrate_user_accounts.sql` para crear las tablas de cuentas y sesiones. Las cuentas nuevas se guardan en MySQL; la aplicación comprueba el formato del correo, pero no verifica la existencia ni la propiedad del buzón. Las contraseñas se almacenan con scrypt y no se puede recuperar una contraseña olvidada desde la interfaz.
+
+Para habilitar IAintegrada, aplica `database/migrate_sentinel.sql` sobre `cyberscan_db` después de crear `user_accounts` (por ejemplo, después de `migrate_user_accounts.sql`). La migración solo crea tablas `sentinel_*` y agrega datos iniciales idempotentes; no elimina ni modifica las tablas existentes. Opcionalmente configura `GROQ_API_KEY` para respuestas generativas. Sin esa clave, el asistente usa la base de conocimiento local. IAintegrada comparte el servidor Express, la autenticación existente y el pool MySQL; no requiere iniciar el servidor legado en otro puerto ni instalar SQLite.
+
+La sección incluye chat con historial asociado a la cuenta, evaluación de recursos y administración de políticas. Sus endpoints autenticados se publican bajo `/api/sentinel` (`/chat`, `/chat/history`, `/policies`, `/policies/evaluate`).
 
 Poner estos comandos en la powershell para iniciar node.js:
 

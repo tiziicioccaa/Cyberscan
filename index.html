@@ -99,6 +99,7 @@
                 <div class="flex flex-wrap border-b border-gray-700 mb-6 gap-2">
                     <button id="btnTabUrl" class="tab-btn active px-3 py-2 text-sm md:text-base">URL</button>
                     <button id="btnTabFile" class="tab-btn px-3 py-2 text-sm md:text-base">Archivo</button>
+                    <button id="btnTabSentinel" class="tab-btn px-3 py-2 text-sm md:text-base">IAintegrada</button>
                     <button id="btnTabEmail" class="tab-btn px-3 py-2 text-sm md:text-base">Filtraciones</button>
                     <button id="btnTabGen" class="tab-btn px-3 py-2 text-sm md:text-base">Generador</button>
                     <button id="btnTabVal" class="tab-btn px-3 py-2 text-sm md:text-base">Validador Pass</button>
@@ -139,6 +140,62 @@
                     <div id="globalScanResultsWrapper" class="mt-6">
                         <p id="analyzerStatus" class="text-lg mt-4 min-h-6 text-gray-400" role="status" aria-live="polite"></p>
                         <div id="resultsContainer" class="space-y-4"></div>
+                    </div>
+
+                    <!-- IAintegrada: asistente Sentinel, evaluación de recursos y políticas locales -->
+                    <div id="tabSentinelContent" class="tab-pane hidden flex flex-col gap-6">
+                        <section class="rounded-xl bg-gray-900 p-5">
+                            <h2 class="text-xl font-bold text-left text-blue-300">Asistente Sentinel IA</h2>
+                            <p class="mt-2 text-sm text-gray-400">Responde con Groq cuando está configurado; si no, utiliza la base de conocimiento local. Las conversaciones se guardan en MySQL en tu cuenta.</p>
+                            <div id="sentinelChatHistory" class="mt-4 max-h-80 space-y-3 overflow-y-auto" aria-live="polite"></div>
+                            <form id="sentinelChatForm" class="mt-4 flex flex-col gap-3">
+                                <label for="sentinelQuestion" class="text-sm text-gray-300">Tu consulta (máximo 1000 caracteres)</label>
+                                <textarea id="sentinelQuestion" maxlength="1000" required rows="3" class="w-full rounded-lg border border-gray-700 bg-gray-800 p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                                <button id="sentinelAskButton" type="submit" class="self-start rounded-lg bg-blue-600 px-5 py-2.5 font-bold hover:bg-blue-700">Consultar IA</button>
+                                <p id="sentinelChatStatus" class="text-sm text-gray-400" role="status" aria-live="polite"></p>
+                            </form>
+                        </section>
+
+                        <section class="rounded-xl bg-gray-900 p-5">
+                            <h2 class="text-xl font-bold text-left text-blue-300">Evaluar un recurso</h2>
+                            <p class="mt-2 text-sm text-gray-400">Compara dominios, extensiones y palabras clave con las políticas locales.</p>
+                            <form id="sentinelEvaluateForm" class="mt-4 flex flex-col gap-3 sm:flex-row">
+                                <input id="sentinelResource" type="text" maxlength="2048" required placeholder="Dominio, URL o nombre de archivo" class="min-w-0 flex-1 rounded-lg bg-gray-800 p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <button id="sentinelEvaluateButton" type="submit" class="rounded-lg bg-indigo-600 px-5 py-3 font-bold hover:bg-indigo-700">Evaluar</button>
+                            </form>
+                            <p id="sentinelEvaluationResult" class="mt-3 text-sm text-gray-300" role="status" aria-live="polite"></p>
+                        </section>
+
+                        <section class="rounded-xl bg-gray-900 p-5">
+                            <h2 class="text-xl font-bold text-left text-blue-300">Políticas de seguridad</h2>
+                            <form id="sentinelPolicyForm" class="mt-4 grid gap-3 sm:grid-cols-2">
+                                <label class="flex flex-col gap-1 text-sm text-gray-300">Tipo
+                                    <select id="sentinelPolicyType" class="rounded-lg bg-gray-800 p-3 text-white">
+                                        <option value="DOMINIO">Dominio</option>
+                                        <option value="EXTENSION">Extensión</option>
+                                        <option value="PALABRA_CLAVE">Palabra clave</option>
+                                    </select>
+                                </label>
+                                <label class="flex flex-col gap-1 text-sm text-gray-300">Patrón
+                                    <input id="sentinelPolicyPattern" type="text" maxlength="255" required class="rounded-lg bg-gray-800 p-3 text-white">
+                                </label>
+                                <label class="flex flex-col gap-1 text-sm text-gray-300">Acción
+                                    <select id="sentinelPolicyAction" class="rounded-lg bg-gray-800 p-3 text-white">
+                                        <option value="BLOQUEAR">Bloquear</option>
+                                        <option value="PERMITIR">Permitir</option>
+                                    </select>
+                                </label>
+                                <label class="flex flex-col gap-1 text-sm text-gray-300">Nivel de riesgo (0-100)
+                                    <input id="sentinelPolicyRisk" type="number" min="0" max="100" step="1" value="50" required class="rounded-lg bg-gray-800 p-3 text-white">
+                                </label>
+                                <label class="flex flex-col gap-1 text-sm text-gray-300 sm:col-span-2">Descripción
+                                    <input id="sentinelPolicyDescription" type="text" maxlength="1000" required class="rounded-lg bg-gray-800 p-3 text-white">
+                                </label>
+                                <button id="sentinelPolicySubmit" type="submit" class="justify-self-start rounded-lg bg-blue-600 px-5 py-2.5 font-bold hover:bg-blue-700 sm:col-span-2">Agregar política</button>
+                            </form>
+                            <p id="sentinelPolicyStatus" class="mt-3 text-sm text-gray-400" role="status" aria-live="polite"></p>
+                            <div id="sentinelPolicyList" class="mt-4 space-y-3" aria-live="polite"></div>
+                        </section>
                     </div>
 
                     <!-- 3. Pestaña: Verificación de filtraciones -->
