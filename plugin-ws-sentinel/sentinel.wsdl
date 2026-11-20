@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Archivo: sentinel.wsdl
+  Descripción: Contrato formal WSDL 1.1 del Plugin Web Service Sentinel AI.
+  Define los tipos de datos XML (XSD), mensajes de entrada/salida, operaciones expuestas,
+  enlace de transporte SOAP 1.1 sobre HTTP y la dirección del endpoint en el puerto 4000.
+-->
+<definitions name="SentinelSecurityService"
+             targetNamespace="http://cyberscan.local/ws/sentinel"
+             xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:tns="http://cyberscan.local/ws/sentinel"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+    <!-- ========================================================================= -->
+    <!-- 1. TYPES: Definición de estructuras de datos XML (Esquema XSD)            -->
+    <!-- ========================================================================= -->
+    <types>
+        <xsd:schema targetNamespace="http://cyberscan.local/ws/sentinel">
+            <!-- Tipos para EvaluarRecurso (filtro preventivo de URLs y archivos) -->
+            <xsd:element name="EvaluarRecursoRequest">
+                <xsd:complexType><xsd:sequence><xsd:element name="recurso" type="xsd:string"/></xsd:sequence></xsd:complexType>
+            </xsd:element>
+            <xsd:element name="EvaluarRecursoResponse">
+                <xsd:complexType><xsd:sequence>
+                    <xsd:element name="accion" type="xsd:string"/>
+                    <xsd:element name="nivelRiesgo" type="xsd:int"/>
+                    <xsd:element name="motivo" type="xsd:string"/>
+                </xsd:sequence></xsd:complexType>
+            </xsd:element>
+
+            <!-- Tipos para AgregarRegla (alta de política preventiva en SQLite) -->
+            <xsd:element name="AgregarReglaRequest">
+                <xsd:complexType><xsd:sequence>
+                    <xsd:element name="tipoObjetivo" type="xsd:string"/>
+                    <xsd:element name="patron" type="xsd:string"/>
+                    <xsd:element name="accion" type="xsd:string"/>
+                    <xsd:element name="nivelRiesgo" type="xsd:int"/>
+                    <xsd:element name="descripcion" type="xsd:string"/>
+                </xsd:sequence></xsd:complexType>
+            </xsd:element>
+            <xsd:element name="AgregarReglaResponse">
+                <xsd:complexType><xsd:sequence>
+                    <xsd:element name="id" type="xsd:int"/>
+                    <xsd:element name="mensaje" type="xsd:string"/>
+                </xsd:sequence></xsd:complexType>
+            </xsd:element>
+
+            <!-- Tipos para ListarReglas (consulta de todas las políticas vigentes) -->
+            <xsd:element name="ListarReglasRequest"><xsd:complexType/></xsd:element>
+            <xsd:element name="ListarReglasResponse">
+                <xsd:complexType><xsd:sequence>
+                    <xsd:element name="total" type="xsd:int"/>
+                    <xsd:element name="reglas" type="xsd:string"/>
+                </xsd:sequence></xsd:complexType>
+            </xsd:element>
+
+            <!-- Tipos para EliminarRegla (baja de una política por identificador) -->
+            <xsd:element name="EliminarReglaRequest">
+                <xsd:complexType><xsd:sequence><xsd:element name="id" type="xsd:int"/></xsd:sequence></xsd:complexType>
+            </xsd:element>
+            <xsd:element name="EliminarReglaResponse">
+                <xsd:complexType><xsd:sequence><xsd:element name="eliminado" type="xsd:boolean"/></xsd:sequence></xsd:complexType>
+            </xsd:element>
+
+            <!-- Tipos para ConsultarAsistenteIA (consulta al modelo LLM / respaldo local) -->
+            <xsd:element name="ConsultarAsistenteIARequest">
+                <xsd:complexType><xsd:sequence>
+                    <xsd:element name="usuarioEmail" type="xsd:string"/>
+                    <xsd:element name="pregunta" type="xsd:string"/>
+                </xsd:sequence></xsd:complexType>
+            </xsd:element>
+            <xsd:element name="ConsultarAsistenteIAResponse">
+                <xsd:complexType><xsd:sequence>
+                    <xsd:element name="respuesta" type="xsd:string"/>
+                    <xsd:element name="fuente" type="xsd:string"/>
+                </xsd:sequence></xsd:complexType>
+            </xsd:element>
+
+            <!-- Tipos para ObtenerHistorialIA (recuperación de chat previo por usuario) -->
+            <xsd:element name="ObtenerHistorialIARequest">
+                <xsd:complexType><xsd:sequence><xsd:element name="usuarioEmail" type="xsd:string"/></xsd:sequence></xsd:complexType>
+            </xsd:element>
+            <xsd:element name="ObtenerHistorialIAResponse">
+                <xsd:complexType><xsd:sequence><xsd:element name="mensajes" type="xsd:string"/></xsd:sequence></xsd:complexType>
+            </xsd:element>
+        </xsd:schema>
+    </types>
+
+    <!-- ========================================================================= -->
+    <!-- 2. MESSAGES: Definición abstracta de mensajes de petición y respuesta     -->
+    <!-- ========================================================================= -->
+    <message name="EvaluarRecursoInput"><part name="parameters" element="tns:EvaluarRecursoRequest"/></message>
+    <message name="EvaluarRecursoOutput"><part name="parameters" element="tns:EvaluarRecursoResponse"/></message>
+    <message name="AgregarReglaInput"><part name="parameters" element="tns:AgregarReglaRequest"/></message>
+    <message name="AgregarReglaOutput"><part name="parameters" element="tns:AgregarReglaResponse"/></message>
+    <message name="ListarReglasInput"><part name="parameters" element="tns:ListarReglasRequest"/></message>
+    <message name="ListarReglasOutput"><part name="parameters" element="tns:ListarReglasResponse"/></message>
+    <message name="EliminarReglaInput"><part name="parameters" element="tns:EliminarReglaRequest"/></message>
+    <message name="EliminarReglaOutput"><part name="parameters" element="tns:EliminarReglaResponse"/></message>
+    <message name="ConsultarAsistenteIAInput"><part name="parameters" element="tns:ConsultarAsistenteIARequest"/></message>
+    <message name="ConsultarAsistenteIAOutput"><part name="parameters" element="tns:ConsultarAsistenteIAResponse"/></message>
+    <message name="ObtenerHistorialIAInput"><part name="parameters" element="tns:ObtenerHistorialIARequest"/></message>
+    <message name="ObtenerHistorialIAOutput"><part name="parameters" element="tns:ObtenerHistorialIAResponse"/></message>
+
+    <!-- ========================================================================= -->
+    <!-- 3. PORT TYPE: Interfaz lógica con las 6 operaciones del Web Service       -->
+    <!-- ========================================================================= -->
+    <portType name="SentinelPortType">
+        <operation name="EvaluarRecurso"><input message="tns:EvaluarRecursoInput"/><output message="tns:EvaluarRecursoOutput"/></operation>
+        <operation name="AgregarRegla"><input message="tns:AgregarReglaInput"/><output message="tns:AgregarReglaOutput"/></operation>
+        <operation name="ListarReglas"><input message="tns:ListarReglasInput"/><output message="tns:ListarReglasOutput"/></operation>
+        <operation name="EliminarRegla"><input message="tns:EliminarReglaInput"/><output message="tns:EliminarReglaOutput"/></operation>
+        <operation name="ConsultarAsistenteIA"><input message="tns:ConsultarAsistenteIAInput"/><output message="tns:ConsultarAsistenteIAOutput"/></operation>
+        <operation name="ObtenerHistorialIA"><input message="tns:ObtenerHistorialIAInput"/><output message="tns:ObtenerHistorialIAOutput"/></operation>
+    </portType>
+
+    <!-- ========================================================================= -->
+    <!-- 4. BINDING: Protocolo de transporte SOAP 1.1 estilo document/literal      -->
+    <!-- ========================================================================= -->
+    <binding name="SentinelSoapBinding" type="tns:SentinelPortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="EvaluarRecurso"><soap:operation soapAction="EvaluarRecurso"/><input><soap:body use="literal"/></input><output><soap:body use="literal"/></output></operation>
+        <operation name="AgregarRegla"><soap:operation soapAction="AgregarRegla"/><input><soap:body use="literal"/></input><output><soap:body use="literal"/></output></operation>
+        <operation name="ListarReglas"><soap:operation soapAction="ListarRegla"/><input><soap:body use="literal"/></input><output><soap:body use="literal"/></output></operation>
+        <operation name="EliminarRegla"><soap:operation soapAction="EliminarRegla"/><input><soap:body use="literal"/></input><output><soap:body use="literal"/></output></operation>
+        <operation name="ConsultarAsistenteIA"><soap:operation soapAction="ConsultarAsistenteIA"/><input><soap:body use="literal"/></input><output><soap:body use="literal"/></output></operation>
+        <operation name="ObtenerHistorialIA"><soap:operation soapAction="ObtenerHistorialIA"/><input><soap:body use="literal"/></input><output><soap:body use="literal"/></output></operation>
+    </binding>
+
+    <!-- ========================================================================= -->
+    <!-- 5. SERVICE: Punto de acceso físico (Endpoint HTTP en el puerto 4000)      -->
+    <!-- ========================================================================= -->
+    <service name="SentinelSecurityService">
+        <port name="SentinelPort" binding="tns:SentinelSoapBinding">
+            <soap:address location="http://localhost:4000/ws/sentinel"/>
+        </port>
+    </service>
+</definitions>
