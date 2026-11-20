@@ -1,0 +1,16 @@
+{
+  "name": "plugin-ws-sentinel",
+  "version": "1.0.0",
+  "description": "Web Service SOAP/XML de Políticas de Seguridad y Asistente IA con SQLite",
+  "main": "ws-server.js",
+  "scripts": {
+    "start": "node ws-server.js",
+    "test": "node --test test/ws.test.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.7",
+    "sqlite3": "^5.1.7"
+  }
+}
